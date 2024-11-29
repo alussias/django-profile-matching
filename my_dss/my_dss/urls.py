@@ -15,7 +15,21 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from profile_matching import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', views.dashboard, name='dashboard'),
+
+    # Cagur resource routes
+    path('cagur/', views.cagur_list, name='cagur_list'),  # List route
+    path('cagur/store/', views.cagur_store, name='cagur_store'),  # Create route
+    path('cagur/<int:id>/', views.cagur_detail, name='cagur_detail'),  # Show route
+    path('cagur/<int:id>/update/', views.cagur_update, name='cagur_update'),  # Edit route
+    path('cagur/<int:id>/delete/', views.cagur_delete, name='cagur_delete'),  # Delete route
+
+    # Result routes
+    path('result/', views.result_index, name='result'),
+    path('result/store/', views.result_store, name='storeResult'),
+    path('result/rank/', views.result_store_rank, name='storeRank'),
 ]
