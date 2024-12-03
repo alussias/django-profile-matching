@@ -3,13 +3,16 @@ from .models import Cagur, Ranking, Kriteria, SubKriteria, NilaiProfil, Perhitun
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 
+from itertools import groupby
+from operator import attrgetter
+
 def dashboard(request):
     # Ambil semua Gap
     gaps = Gap.objects.all()
 
     # Ambil 5 Ranking teratas berdasarkan 'rank'
     rank = Ranking.objects.order_by('rank')[:5]
-    
+
     # Dapatkan ranking teratas
     top1 = rank[0] if len(rank) > 0 else None
     top2 = rank[1] if len(rank) > 1 else None
@@ -23,14 +26,15 @@ def dashboard(request):
     # Mengambil semua data kriteria kecuali yang pertama
     kriteria = Kriteria.objects.all()[1:]
 
-    # Mengambil ID kriteria yang tersisa
-    kriteria_id = kriteria.values_list('id', flat=True)
-
     # Mengambil sub kriteria berdasarkan kriteria pertama
-    sub_kriteria1 = SubKriteria.objects.filter(id_k=kriteria1.id) if kriteria1 else None
+    sub_kriteria1 = SubKriteria.objects.filter(kriteria_id=kriteria1.id) if kriteria1 else None
 
-    # Mengelompokkan semua sub kriteria berdasarkan kriteria_id
-    sub_kriteria = SubKriteria.objects.all().order_by('kriteria_id')
+    # Mengelompokkan sub kriteria berdasarkan kriteria_id
+    all_sub_kriteria = SubKriteria.objects.all().order_by('kriteria_id')
+    grouped_sub_kriteria = {
+        kriteria_id: list(items)
+        for kriteria_id, items in groupby(all_sub_kriteria, key=attrgetter('kriteria_id'))
+    }
 
     # Mengirim data ke template
     context = {
@@ -43,10 +47,11 @@ def dashboard(request):
         'kriteria1': kriteria1,
         'kriteria': kriteria,
         'sub_kriteria1': sub_kriteria1,
-        'sub_kriteria': sub_kriteria,
+        'grouped_sub_kriteria': grouped_sub_kriteria,
     }
 
     return render(request, 'index.html', context)
+
 
 def cagur_list(request):
     # Ambil semua data Cagur dan buat pagination (misalnya 5 item per halaman)
