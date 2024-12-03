@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Cagur, Ranking, Kriteria, SubKriteria, NilaiProfil, PerhitunganGap, Gap, PerhitunganAkhir
+from django.db.models import Sum
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 
@@ -62,17 +63,12 @@ def cagur_list(request):
 
     # Ambil semua Kriteria
     kriteria = Kriteria.objects.all()
-    # Mengambil ID kriteria yang tersisa
-    # sub_kriteria = SubKriteria.values_list('id', flat=True)
+    sub_kriteria = SubKriteria.objects.all()
 
-    # Ambil dan kelompokkan SubKriteria berdasarkan 'kriteria_id'
-    sub_kriteria = SubKriteria.objects.all().values('kriteria_id', 'id').order_by('kriteria_id')
+    # Mengelompokkan sub_kriteria berdasarkan id_k (relasi ke Kriteria)
     grouped_sub_kriteria = {}
     for sub in sub_kriteria:
-        kriteria_id = sub['kriteria_id']
-        if kriteria_id not in grouped_sub_kriteria:
-            grouped_sub_kriteria[kriteria_id] = []
-        grouped_sub_kriteria[kriteria_id].append(sub)
+        grouped_sub_kriteria.setdefault(sub.kriteria_id, []).append(sub)
 
     # Kirim data ke template
     return render(request, 'cagur.html', {
@@ -88,8 +84,17 @@ def cagur_detail(request, id):
 # Fungsi untuk menyimpan data cagur baru
 def cagur_store(request):
     if request.method == 'POST':
-        # Menyimpan data ke tabel Cagur
-        cagur = Cagur.objects.create(**request.POST)
+        # Buat instance Cagur baru dengan data dari form
+        cagur = Cagur.objects.create(
+            nama=request.POST.get('nama'),
+            telp=request.POST.get('telp'),
+            Pendidikan=request.POST.get('Pendidikan'),
+            IPK=request.POST.get('IPK'),
+            Umur=request.POST.get('Umur'),
+            Pengalaman_Mengajar=request.POST.get('Pengalaman_Mengajar'),
+            Psikotes=request.POST.get('Psikotes'),
+            Sertifikasi_Keahlian=request.POST.get('Sertifikasi_Keahlian')
+        )
 
         # Ambil ID Cagur yang baru saja dibuat
         cagurId = cagur.id
@@ -101,11 +106,11 @@ def cagur_store(request):
             subKriteria = SubKriteria.objects.filter(desc=desc).first()
 
             if subKriteria:
-                nilaiProfil = NilaiProfil().objects.all()
-                nilaiProfil.id_cagur = cagur
-                nilaiProfil.kriteria_id = subKriteria.kriteria.id
-                nilaiProfil.id_sk = subKriteria.id
+                nilaiProfil = NilaiProfil()
                 nilaiProfil.nilai_profil = subKriteria.nilai
+                nilaiProfil.cagur_id = cagurId
+                nilaiProfil.kriteria_id = subKriteria.kriteria.id
+                nilaiProfil.sub_kriteria_id = subKriteria.id
                 nilaiProfil.save()
 
         # Menyimpan ke tabel PerhitunganGap
@@ -116,11 +121,11 @@ def cagur_store(request):
 
             if subKriteria:
                 perhitungan = PerhitunganGap()
-                perhitungan.id_cagur = cagurId
-                perhitungan.id_sk = subKriteria.id
+                perhitungan.cagur_id = cagurId
+                perhitungan.sub_kriteria_id = subKriteria.id
                 perhitungan.ideal_profil = selectedSubKriteria.nilai
 
-                nilaiProfilPelamar = NilaiProfil.objects.filter(id_cagur=cagurId, id_sk=subKriteria.id).first()
+                nilaiProfilPelamar = NilaiProfil.objects.filter(cagur_id=cagurId, sub_kriteria_id=subKriteria.id).first()
                 perhitungan.gap = nilaiProfilPelamar.nilai_profil - selectedSubKriteria.nilai
 
                 gap = Gap.objects.filter(gap=perhitungan.gap).first()
@@ -128,6 +133,7 @@ def cagur_store(request):
                 perhitungan.save()
 
         return redirect('cagur_list')  # Redirect ke halaman cagur list
+    return render(request, 'cagur.html') 
 
 # Fungsi untuk memperbarui data cagur
 def cagur_update(request, id):
@@ -182,23 +188,23 @@ def result_index(request):
 
 def result_store(request):
     if request.method == "POST":
-        cagurs = Cagur.objects.filter(perhitunganAkhir__isnull=True)
+        cagurs = Cagur.objects.filter(perhitunganakhir__isnull=True)
         for cagur in cagurs:
             cagurId = cagur.id
 
             sub_kriteria_core = SubKriteria.objects.filter(selected=1, kriteria__jenis='Core Factor').select_related('kriteria').first()
             sub_kriteria_secondary = SubKriteria.objects.filter(selected=1, kriteria__jenis='Secondary Factor').select_related('kriteria').first()
 
-            perhitungan_core = PerhitunganGap.objects.filter(id_cagur=cagurId, id_sk__kriteria__jenis='Core Factor').select_related('id_sk__kriteria')
-            perhitungan_secondary = PerhitunganGap.objects.filter(id_cagur=cagurId, id_sk__kriteria__jenis='Secondary Factor').select_related('id_sk__kriteria')
+            perhitungan_core = PerhitunganGap.objects.filter(cagur_id=cagurId, sub_kriteria_id__kriteria__jenis='Core Factor').select_related('sub_kriteria_id__kriteria')
+            perhitungan_secondary = PerhitunganGap.objects.filter(cagur_id=cagurId, sub_kriteria_id__kriteria__jenis='Secondary Factor').select_related('sub_kriteria_id__kriteria')
 
-            sum_core = perhitungan_core.aggregate(Sum('bobot_gap'))['bobot_gap__sum']
-            sum_secondary = perhitungan_secondary.aggregate(Sum('bobot_gap'))['bobot_gap__sum']
+            sum_core = float(perhitungan_core.aggregate(Sum('bobot_gap'))['bobot_gap__sum'] or 0)
+            sum_secondary = float(perhitungan_secondary.aggregate(Sum('bobot_gap'))['bobot_gap__sum'] or 0)
 
             for jenis_kriteria, sub_kriteria, sum_nilai in [('Core Factor', sub_kriteria_core, sum_core), ('Secondary Factor', sub_kriteria_secondary, sum_secondary)]:
                 perhitungan_akhir = PerhitunganAkhir()
-                perhitungan_akhir.id_cagur = cagurId
-                perhitungan_akhir.id_sk = sub_kriteria.id
+                perhitungan_akhir.cagur_id = cagurId
+                perhitungan_akhir.sub_kriteria_id = sub_kriteria.id
                 perhitungan_akhir.jumlah_nilai = sum_nilai
                 perhitungan_akhir.rata_rata = sum_nilai / 3
                 if jenis_kriteria == 'Core Factor':
@@ -207,8 +213,8 @@ def result_store(request):
                     perhitungan_akhir.total_rata_rata = perhitungan_akhir.rata_rata * 0.3
                 perhitungan_akhir.save()
 
-        return redirect('result_index')
-    return redirect('result_index')
+        return redirect('result')
+    return redirect('result')
 
 
 def result_store_rank(request):
@@ -217,11 +223,11 @@ def result_store_rank(request):
         cagurId = cagur.id
 
         # Calculate total_nilai for cagur
-        total_nilai = PerhitunganAkhir.objects.filter(id_cagur=cagurId).aggregate(Sum('total_rata_rata'))['total_rata_rata__sum']
+        total_nilai = PerhitunganAkhir.objects.filter(cagur_id=cagurId).aggregate(Sum('total_rata_rata'))['total_rata_rata__sum']
 
         # Save to ranking table
         ranking = Ranking()
-        ranking.id_cagur = cagurId
+        ranking.cagur_id = cagurId
         ranking.total_nilai = total_nilai
         ranking.save()
 
@@ -233,4 +239,4 @@ def result_store_rank(request):
             ranked_item.save()
             rank += 1
 
-    return redirect('result_index')
+    return redirect('result')
