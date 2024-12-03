@@ -1,0 +1,98 @@
+{% extends 'partials/navbar.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% load custom_filters %}
+<div class="row">
+  <div class="col-md-12 grid-margin">
+    <div class="row">
+      <div class="col-12 col-xl-8 mb-4 mb-xl-0">
+        <h3 class="font-weight-bold">Daftar Cagur</h3>
+        <h6 class="font-weight-normal mb-0">Manajemen Calon Guru</h6>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="card-title">Daftar Calon Guru</h4>
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nama</th>
+                <th>Telepon</th>
+                <th>Email</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cagur in page_obj %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ cagur.nama }}</td>
+                <td>{{ cagur.telp }}</td>
+                <td>{{ cagur.email }}</td>
+                <td>
+                  <a href="{% url 'cagur_detail' cagur.id %}" class="btn btn-primary btn-sm">Detail</a>
+                  <a href="{% url 'cagur_update' cagur.id %}" class="btn btn-warning btn-sm">Edit</a>
+                  <form action="{% url 'cagur_delete' cagur.id %}" method="POST" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center">Tidak ada data calon guru</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <nav aria-label="Pagination">
+            <ul class="pagination justify-content-center">
+              {% if page_obj.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Sebelumnya</a>
+              </li>
+              {% endif %}
+              <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+              {% if page_obj.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Berikutnya</a>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-4">
+  <div class="col-md-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="card-title">Kriteria dan Sub-Kriteria</h4>
+        {% for kriteria in kriteria %}
+        <h5>{{ kriteria.nama }}</h5>
+        <ul>
+            {% for sub in grouped_sub_kriteria|get_item:kriteria.id %}
+            <li>Sub-Kriteria ID: {{ sub.id }}</li>
+            {% empty %}
+            <li>Tidak ada sub-kriteria untuk kriteria ini</li>
+            {% endfor %}
+        </ul>
+        {% empty %}
+        <p>Tidak ada kriteria yang tersedia</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

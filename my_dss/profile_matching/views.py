@@ -17,18 +17,22 @@ def dashboard(request):
     top4 = rank[3] if len(rank) > 3 else None
     top5 = rank[4] if len(rank) > 4 else None
 
-    # Ambil Kriteria pertama dan sisanya
+    # Mengambil data kriteria pertama
     kriteria1 = Kriteria.objects.first()
-    kriteria = Kriteria.objects.all()[1:]  # Mengambil kriteria setelah yang pertama
-    kriteriaId = kriteria.values_list('id', flat=True)
 
-    # Ambil sub_kriteria berdasarkan kriteria pertama
-    sub_kriteria1 = SubKriteria.objects.filter(kriteria_id=kriteria1.id)
-    
-    # Ambil semua sub_kriteria dan kelompokkan berdasarkan kriteria_id
-    sub_kriteria = SubKriteria.objects.all().values('kriteria_id').distinct()
+    # Mengambil semua data kriteria kecuali yang pertama
+    kriteria = Kriteria.objects.all()[1:]
 
-    # Kirim data ke template
+    # Mengambil ID kriteria yang tersisa
+    kriteria_id = kriteria.values_list('id', flat=True)
+
+    # Mengambil sub kriteria berdasarkan kriteria pertama
+    sub_kriteria1 = SubKriteria.objects.filter(id_k=kriteria1.id) if kriteria1 else None
+
+    # Mengelompokkan semua sub kriteria berdasarkan kriteria_id
+    sub_kriteria = SubKriteria.objects.all().order_by('kriteria_id')
+
+    # Mengirim data ke template
     context = {
         'gaps': gaps,
         'top1': top1,
@@ -39,7 +43,7 @@ def dashboard(request):
         'kriteria1': kriteria1,
         'kriteria': kriteria,
         'sub_kriteria1': sub_kriteria1,
-        'sub_kriteria': sub_kriteria
+        'sub_kriteria': sub_kriteria,
     }
 
     return render(request, 'index.html', context)
@@ -53,9 +57,11 @@ def cagur_list(request):
 
     # Ambil semua Kriteria
     kriteria = Kriteria.objects.all()
+    # Mengambil ID kriteria yang tersisa
+    # sub_kriteria = SubKriteria.values_list('id', flat=True)
 
     # Ambil dan kelompokkan SubKriteria berdasarkan 'kriteria_id'
-    sub_kriteria = SubKriteria.objects.all().values('kriteria_id', 'sub_kriteria').order_by('kriteria_id')
+    sub_kriteria = SubKriteria.objects.all().values('kriteria_id', 'id').order_by('kriteria_id')
     grouped_sub_kriteria = {}
     for sub in sub_kriteria:
         kriteria_id = sub['kriteria_id']
@@ -70,8 +76,8 @@ def cagur_list(request):
         'grouped_sub_kriteria': grouped_sub_kriteria
     })
     
-def cagur_detail(request, cagur_id):
-    cagur = get_object_or_404(Cagur, id=cagur_id)
+def cagur_detail(request, id):
+    cagur = get_object_or_404(Cagur, id=id)
     return HttpResponse(cagur)  # Anda bisa menampilkan data cagur sesuai keinginan
 
 # Fungsi untuk menyimpan data cagur baru
@@ -90,7 +96,7 @@ def cagur_store(request):
             subKriteria = SubKriteria.objects.filter(desc=desc).first()
 
             if subKriteria:
-                nilaiProfil = NilaiProfil()
+                nilaiProfil = NilaiProfil().objects.all()
                 nilaiProfil.id_cagur = cagur
                 nilaiProfil.kriteria_id = subKriteria.kriteria.id
                 nilaiProfil.id_sk = subKriteria.id
@@ -119,8 +125,8 @@ def cagur_store(request):
         return redirect('cagur_list')  # Redirect ke halaman cagur list
 
 # Fungsi untuk memperbarui data cagur
-def cagur_update(request, cagur_id):
-    cagur = get_object_or_404(Cagur, id=cagur_id)
+def cagur_update(request, id):
+    cagur = get_object_or_404(Cagur, id=id)
 
     if request.method == 'POST':
         cagur.update(**request.POST)
@@ -128,8 +134,8 @@ def cagur_update(request, cagur_id):
         return redirect('cagur_list')  # Redirect ke halaman cagur list
 
 # Fungsi untuk menghapus data cagur
-def cagur_delete(request, cagur_id):
-    cagur = get_object_or_404(Cagur, id=cagur_id)
+def cagur_delete(request, id):
+    cagur = get_object_or_404(Cagur, id=id)
 
     if request.method == 'POST':
         cagur.delete()
